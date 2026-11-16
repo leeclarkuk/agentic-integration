@@ -46,7 +46,10 @@ export function template(args: string[] = []): Manifest[] {
     encoding: 'utf8',
   });
   if (res.status !== 0) throw new Error(`helm template failed:\n${res.stderr}`);
-  return parseAllDocuments(res.stdout)
-    .map((d) => d.toJS() as Manifest | null)
-    .filter((m): m is Manifest => m !== null);
+  const docs = parseAllDocuments(res.stdout);
+  // Strict parse: duplicate keys are recorded as document errors, but toJS() drops them
+  // silently. Helm and the API server tolerate them too (last wins); kubeconform does not.
+  const errors = docs.flatMap((d) => d.errors.map((e) => e.message));
+  if (errors.length) throw new Error(`rendered YAML is invalid:\n${errors.join('\n')}`);
+  return docs.map((d) => d.toJS() as Manifest | null).filter((m): m is Manifest => m !== null);
 }

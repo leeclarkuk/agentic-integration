@@ -26,7 +26,7 @@ spec:
     metadata:
       labels:
         {{- include "aip.labels" $ | nindent 8 }}
-        {{- include "aip.selectorLabels" $ctx | nindent 8 }}
+        app.kubernetes.io/component: {{ $name }}
       annotations:
         # Datadog unified service tagging + log source.
         ad.datadoghq.com/{{ $name }}.logs: '[{"source":"{{ $name }}","service":"{{ $name }}"}]'
