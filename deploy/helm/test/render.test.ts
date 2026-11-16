@@ -116,9 +116,9 @@ describe.skipIf(!helmAvailable())('helm template', () => {
 
   it('keeps the test pod after success so `helm test --logs` works on Helm 3', () => {
     const pod = template().find((m) => m.kind === 'Pod' && m.metadata.name === 'aip-test-readiness');
-    const policy = (pod?.metadata as { annotations?: Record<string, string> }).annotations?.[
-      'helm.sh/hook-delete-policy'
-    ];
+    expect(pod).toBeDefined();
+    const annotations = (pod?.metadata as { annotations?: Record<string, string> } | undefined)?.annotations;
+    const policy = annotations?.['helm.sh/hook-delete-policy'];
     expect(policy).toBeDefined();
     expect(policy).not.toContain('hook-succeeded');
   });
