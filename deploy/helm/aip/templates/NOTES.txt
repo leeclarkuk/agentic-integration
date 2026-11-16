@@ -1,0 +1,16 @@
+AIP {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Check rollout:
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  helm -n {{ .Release.Namespace }} test {{ .Release.Name }}
+
+{{- if not .Values.connections.existingSecret }}
+
+WARNING: connections.existingSecret is not set. Services that need Postgres/Redis
+will report not-ready (/readyz) until you create the Secret and set this value.
+{{- end }}
+
+Telemetry (call-home): {{ if .Values.telemetry.enabled }}enabled. Disable with --set telemetry.enabled=false.{{ else }}disabled.{{ end }}
+What is sent: docs/release/call-home.md
+
+Troubleshooting pods that won't start: docs/runbooks/pod-not-starting.md

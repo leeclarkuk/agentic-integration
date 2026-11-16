@@ -1,0 +1,22 @@
+{{- range $name, $c := .Values.components }}
+{{- if and $c.enabled $c.service.enabled }}
+{{- $ctx := dict "root" $ "component" $name }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aip.componentName" $ctx }}
+  labels:
+    {{- include "aip.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  type: {{ $c.service.type }}
+  selector:
+    {{- include "aip.selectorLabels" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $c.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}
+{{- end }}

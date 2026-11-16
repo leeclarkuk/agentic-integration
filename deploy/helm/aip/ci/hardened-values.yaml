@@ -1,0 +1,31 @@
+# Exercised by CI (helm lint/template + kubeconform). Represents a locked-down
+# customer install: pinned digests, restricted network, telemetry off, GitOps install ID.
+global:
+  imageRegistry: europe-docker.pkg.dev/customer-project/aip-mirror
+  cloud: gcp
+telemetry:
+  enabled: false
+  installId: 6f1c2a3e-4b5d-4c6e-8f70-1a2b3c4d5e6f
+connections:
+  existingSecret: aip-connections
+serviceAccount:
+  annotations:
+    iam.gke.io/gcp-service-account: aip@customer-project.iam.gserviceaccount.com
+components:
+  api:
+    image:
+      digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  worker:
+    image:
+      digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+    autoscaling:
+      enabled: true
+ingress:
+  enabled: true
+  className: gce
+  host: aip.customer.example
+  tls:
+    secretName: aip-tls
+networkPolicy:
+  apiIngressNamespaces: [ingress-nginx]
+  egressCIDRs: [10.0.0.0/8]

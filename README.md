@@ -14,6 +14,7 @@ Monorepo for the AI integration platform: services, shared libraries, infrastruc
 | `infra/terraform/`   | Terraform modules (`modules/`) and customer-facing BYOC roots (`byoc/`) |
 | `infra/cdk/`         | AWS CDK estate under migration to Terraform                             |
 | `deploy/compose/`    | Local / CI stack                                                        |
+| `deploy/helm/aip`    | Helm chart for self-hosted installs                                     |
 | `docs/`              | ADRs, release policy, runbooks, self-hosted guides                      |
 
 ## Getting started

@@ -71,10 +71,30 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      packages: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: sigstore/cosign-installer@v3
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.22.1
+
+      - name: Package, push and sign Helm chart
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          owner_lc="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          # Point the packaged chart's default registry at this release's images.
+          sed -i -E "s#imageRegistry: ghcr.io/[^[:space:]]+#imageRegistry: ghcr.io/${owner_lc}#" deploy/helm/aip/values.yaml
+          mkdir -p dist
+          helm package deploy/helm/aip --version "$version" --app-version "$version" -d dist
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          digest=$(helm push "dist/aip-${version}.tgz" "oci://ghcr.io/${owner_lc}/charts" 2>&1 | tee /dev/stderr | awk '/^Digest:/ {print $2}')
+          test -n "$digest"
+          cosign sign --yes "ghcr.io/${owner_lc}/charts/aip@${digest}"
 
       - name: Package Terraform modules
         run: |
