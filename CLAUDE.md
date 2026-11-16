@@ -8,6 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Target stack: GCP, Terraform, GitHub Actions, Postgres/Redis/Kafka/OpenSearch/ClickHouse, Datadog/Sentry/Metabase, TypeScript (Node) + Python. The existing AWS estate is CDK and is being migrated to Terraform. No new CDK stacks (see `infra/cdk/README.md`).
 - Anything under `infra/terraform/byoc/`, `docs/release/`, `docs/self-hosted/`, the Helm chart's values, and the call-home payload is **customer-facing public API**. Breaking changes need a major version (`docs/release/support-policy.md`).
 - Remote: `github.com/leeclarkuk/agentic-integration` (private), default branch `main`. Every push to `main` runs CI. Debug with `gh run list` and `gh run view <id> --log-failed`.
+- Branch protection and rulesets are **unavailable**: the repo is private on a free personal account (API returns 403 "Upgrade to GitHub Pro"). Nothing enforces PRs or checks on `main`, so don't push to it directly unless asked. Use a PR so CI runs first.
+- Branches pushed by a workflow's `GITHUB_TOKEN` (e.g. `chore/uv-lock`) don't trigger CI. Open the PR with `gh pr create` from the user's account to get checks.
+- Pushing to a PR branch cancels its in-progress CI run (`concurrency: cancel-in-progress` off `main`). Batch fixes before pushing.
 
 ## Commands
 
@@ -52,6 +55,7 @@ The pinned versions are recent majors (TypeScript 7, Nx 24, Vitest 5, Biome 2.6,
 - pnpm 12 allowlists install scripts with an `allowBuilds:` map in `pnpm-workspace.yaml`, managed by `pnpm approve-builds <pkg>`. `onlyBuiltDependencies` is ignored.
 - Biome 2.6 uses `linter.rules.preset`, not `recommended: true`. It parses YAML, so Go-templated files (`deploy/helm/aip/templates/`, `templates/`) are excluded in `biome.json`. Add any new templated directory there too.
 - `tsconfig.base.json` enables `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. Use precise object types rather than `Record<string, T>` when keys are known, and spread optional props conditionally (`...(x ? { x } : {})`).
+- Biome reads `.gitignore` only because `vcs.useIgnoreFile` is on in `biome.json`. Without it, `biome ci` lints `.venv/` (created by `uv sync` in CI) and fails on package JSON there.
 - GitHub Actions: check that a tag exists before referencing it (`gh api repos/<owner>/<repo>/git/ref/tags/<tag>`). Some actions publish no floating major tag (e.g. TruffleHog). Pin those to a release commit SHA with a `# vX.Y.Z` comment.
 
 ## Architecture
