@@ -1,0 +1,27 @@
+{
+  "name": "agentic-integration",
+  "private": true,
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "nx run-many -t typecheck",
+    "affected": "nx affected -t typecheck test build",
+    "affected:list": "nx show projects --affected",
+    "graph": "nx graph",
+    "platform": "tsx tools/platform-cli/src/index.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@types/node": "26.6.6",
+    "nx": "24.0.6",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}

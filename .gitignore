@@ -1,0 +1,27 @@
+node_modules/
+dist/
+.nx/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+
+.DS_Store

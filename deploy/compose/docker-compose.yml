@@ -1,0 +1,44 @@
+# Local + CI e2e stack. Mirrors the production topology at small scale.
+# Kafka / OpenSearch / ClickHouse are added as services start depending on them;
+# keep this file the single source for "what does the platform need to boot".
+name: aip
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: aip
+      POSTGRES_PASSWORD: aip-local-only
+      POSTGRES_DB: aip
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aip"]
+      interval: 2s
+      retries: 30
+    ports: ["5432:5432"]
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 30
+    ports: ["6379:6379"]
+
+  api:
+    image: ${API_IMAGE:-aip/api:local}
+    build: { context: ../.., dockerfile: apps/api/Dockerfile }
+    environment:
+      AIP_VERSION: ${AIP_VERSION:-0.0.0-e2e}
+      AIP_EDITION: self-hosted
+      AIP_TELEMETRY_DISABLED: "1"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    ports: ["8080:8080"]
+
+  worker:
+    image: ${WORKER_IMAGE:-aip/worker:local}
+    build: { context: ../.., dockerfile: apps/worker/Dockerfile }
+    environment:
+      AIP_VERSION: ${AIP_VERSION:-0.0.0-e2e}
+    ports: ["8081:8081"]

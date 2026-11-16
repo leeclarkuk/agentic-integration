@@ -1,0 +1,24 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "worker",
+  "projectType": "application",
+  "sourceRoot": "apps/worker/src",
+  "tags": ["lang:python", "type:service"],
+  "targets": {
+    "lint": {
+      "command": "uv run ruff check apps/worker && uv run ruff format --check apps/worker",
+      "cache": true,
+      "inputs": ["default"]
+    },
+    "typecheck": {
+      "command": "uv run mypy apps/worker/src",
+      "cache": true,
+      "inputs": ["default"]
+    },
+    "test": {
+      "command": "uv run pytest apps/worker/tests -q",
+      "cache": true,
+      "inputs": ["default", "{workspaceRoot}/uv.lock"]
+    }
+  }
+}
