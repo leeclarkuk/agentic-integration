@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+  - tools/*
+  - e2e
+
+# Supply-chain default: dependency install scripts are blocked unless allowlisted here.
+allowBuilds:
+  esbuild: true
+  nx: true

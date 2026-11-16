@@ -1,0 +1,26 @@
+# uv workspace root. Each Python service under apps/ is a workspace member with
+# its own pyproject.toml; one lockfile (uv.lock) pins the whole Python estate.
+[project]
+name = "agentic-integration"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["apps/worker"]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.8", "mypy>=1.13"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "BLE"]
+ignore = ["S101"]
+
+[tool.mypy]
+strict = true

@@ -1,0 +1,16 @@
+{
+  "name": "@aip/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "e2e": "vitest run --config vitest.e2e.config.ts"
+  },
+  "nx": {
+    "implicitDependencies": [
+      "@aip/api",
+      "worker"
+    ]
+  }
+}
