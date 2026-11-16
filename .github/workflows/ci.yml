@@ -147,7 +147,8 @@ jobs:
       - name: Diagnostics
         if: failure()
         run: |
-          kubectl -n aip get all,events --sort-by=.lastTimestamp
+          kubectl -n aip get all
+          kubectl -n aip get events --sort-by=.lastTimestamp
           kubectl -n aip describe pods
           kubectl -n aip logs -l app.kubernetes.io/instance=aip --all-containers --tail=200
 
