@@ -1,0 +1,62 @@
+# Regenerates uv.lock on a runner, for contributors without uv installed locally.
+# Pushes the result to a branch (never to main) and uploads it as an artifact;
+# merge it through a normal PR so CI and review still apply.
+#   gh workflow run uv-lock.yml
+name: uv-lock
+
+on:
+  workflow_dispatch:
+    inputs:
+      upgrade:
+        description: "Upgrade all Python dependencies to the latest allowed versions (uv lock --upgrade)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uv-lock
+  cancel-in-progress: true
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the chore/uv-lock branch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Resolve
+        run: uv lock ${{ inputs.upgrade && '--upgrade' || '' }}
+
+      - name: Verify the lock installs and tests pass
+        run: |
+          uv sync --locked
+          uv run pytest apps -q
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uv-lock
+          path: uv.lock
+          if-no-files-found: error
+
+      - name: Push to chore/uv-lock if changed
+        run: |
+          if git diff --quiet --exit-code -- uv.lock && git ls-files --error-unmatch uv.lock >/dev/null 2>&1; then
+            echo "uv.lock is already up to date." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c chore/uv-lock
+          git add uv.lock
+          git commit -m "chore: regenerate uv.lock"
+          git push --force origin chore/uv-lock
+          {
+            echo "Pushed \`uv.lock\` to \`chore/uv-lock\`. Open a PR:"
+            echo ""
+            echo "    gh pr create --head chore/uv-lock --title 'chore: regenerate uv.lock' --fill"
+          } >> "$GITHUB_STEP_SUMMARY"
