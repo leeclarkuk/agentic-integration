@@ -7,7 +7,8 @@ metadata:
     {{- include "aip.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: test
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    # Not hook-succeeded: Helm 3 deletes the pod before `helm test --logs` can read it and reports failure.
+    helm.sh/hook-delete-policy: before-hook-creation
 spec:
   restartPolicy: Never
   automountServiceAccountToken: false
