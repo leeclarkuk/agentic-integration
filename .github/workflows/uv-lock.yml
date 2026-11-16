@@ -32,10 +32,13 @@ jobs:
       - name: Resolve
         run: uv lock ${{ inputs.upgrade && '--upgrade' || '' }}
 
-      - name: Verify the lock installs and tests pass
+      - name: Verify the lock installs, lints, typechecks and tests
         run: |
-          uv sync --locked
-          uv run pytest apps -q
+          uv sync --locked --all-packages
+          uv run --all-packages ruff check apps
+          uv run --all-packages ruff format --check apps
+          uv run --all-packages mypy apps/worker/src
+          uv run --all-packages pytest apps -q
 
       - uses: actions/upload-artifact@v4
         with:

@@ -12,7 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```sh
-pnpm install && uv sync                 # uv.lock must be committed; CI runs `uv sync --locked`
+pnpm install && uv sync --all-packages  # uv.lock must be committed; CI runs `uv sync --locked --all-packages`
+gh workflow run uv-lock.yml             # no local uv? regenerates uv.lock in CI, pushes branch chore/uv-lock
 pnpm affected                           # typecheck/test/build only what changed vs main
 pnpm affected:list                      # which Nx projects are affected
 pnpm test | pnpm build | pnpm typecheck # everything
@@ -25,7 +26,7 @@ npx nx show projects                    # project names (TS projects use package
 # single test file / test name (TS, from the package dir):
 cd apps/api && npx vitest run test/server.test.ts -t "reports unready"
 # Python:
-uv run pytest apps/worker/tests/test_health.py -k healthz
+uv run --all-packages pytest apps/worker/tests/test_health.py -k healthz
 
 # e2e: start the stack, then run suites (E2E_PROJECTS=all|comma-separated Nx projects)
 docker compose -f deploy/compose/docker-compose.yml up -d --build --wait
@@ -55,7 +56,7 @@ The pinned versions are recent majors (TypeScript 7, Nx 24, Vitest 5, Biome 2.6,
 
 ## Architecture
 
-**Build graph (Nx + pnpm + uv).** Nx is used package-based, without Nx plugins. TS project targets are the `scripts` in each `package.json`. Python projects declare targets in `project.json` as `uv run …` commands. Cross-project edges come from `workspace:*` deps (inferred) or `implicitDependencies` (Python, e2e). Edges Nx can't infer must be declared, or affected-only CI will skip tests it should run. `templates/` is excluded from the graph via `.nxignore`. Rationale: `docs/adr/0001-monorepo-tooling.md`.
+**Build graph (Nx + pnpm + uv).** Nx is used package-based, without Nx plugins. TS project targets are the `scripts` in each `package.json`. Python projects declare targets in `project.json` as `uv run --all-packages …` commands. The root `pyproject.toml` is a virtual workspace root (`package = false`), so plain `uv sync`/`uv run` install no workspace members. Always pass `--all-packages`, or imports like `worker` fail. Cross-project edges come from `workspace:*` deps (inferred) or `implicitDependencies` (Python, e2e). Edges Nx can't infer must be declared, or affected-only CI will skip tests it should run. `templates/` is excluded from the graph via `.nxignore`. Rationale: `docs/adr/0001-monorepo-tooling.md`.
 
 **Incremental e2e.** `e2e` is an Nx project that implicitly depends on every service. CI (`.github/workflows/ci.yml`) passes the affected project list as `E2E_PROJECTS`. `e2e/select-suites.ts` maps it to `e2e/suites/<project-without-@aip/>/`, plus `_shared/`. `main` runs all suites. `e2e/vitest.e2e.config.ts` is the e2e config. Plain `vitest run` in `e2e/` runs only the harness's own unit tests.
 
