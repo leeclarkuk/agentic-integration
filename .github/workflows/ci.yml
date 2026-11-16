@@ -48,7 +48,7 @@ jobs:
           tar -xzf /tmp/kc.tgz -C /usr/local/bin kubeconform
 
       - run: pnpm install --frozen-lockfile
-      - run: uv sync --locked
+      - run: uv sync --locked --all-packages
 
       # Sets NX_BASE / NX_HEAD: PRs diff against the merge-base; main diffs against
       # the last green commit on main, so a red build doesn't shrink the next diff.

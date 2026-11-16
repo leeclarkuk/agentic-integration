@@ -23,7 +23,7 @@ Requires Node 24 (`.nvmrc`), pnpm, and [uv](https://docs.astral.sh/uv/).
 
 ```sh
 pnpm install
-uv sync
+uv sync --all-packages
 pnpm affected          # typecheck/test/build what your branch changed
 pnpm test              # everything
 pnpm platform new service my-service --lang ts

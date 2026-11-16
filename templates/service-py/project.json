@@ -6,17 +6,17 @@
   "tags": ["lang:python", "type:service"],
   "targets": {
     "lint": {
-      "command": "uv run ruff check apps/__name__ && uv run ruff format --check apps/__name__",
+      "command": "uv run --all-packages ruff check apps/__name__ && uv run --all-packages ruff format --check apps/__name__",
       "cache": true,
       "inputs": ["default"]
     },
     "typecheck": {
-      "command": "uv run mypy apps/__name__/src",
+      "command": "uv run --all-packages mypy apps/__name__/src",
       "cache": true,
       "inputs": ["default"]
     },
     "test": {
-      "command": "uv run pytest apps/__name__/tests -q",
+      "command": "uv run --all-packages pytest apps/__name__/tests -q",
       "cache": true,
       "inputs": ["default", "{workspaceRoot}/uv.lock"]
     }
