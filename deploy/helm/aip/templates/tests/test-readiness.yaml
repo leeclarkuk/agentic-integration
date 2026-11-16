@@ -1,0 +1,37 @@
+{{- if and .Values.components.api.enabled .Values.components.api.service.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "aip.fullname" . }}-test-readiness
+  labels:
+    {{- include "aip.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: readiness
+      image: curlimages/curl:8.11.1
+      args:
+        - --fail
+        - --silent
+        - --show-error
+        - --retry
+        - "10"
+        - --retry-connrefused
+        - --retry-delay
+        - "3"
+        - http://{{ include "aip.componentName" (dict "root" . "component" "api") }}:{{ .Values.components.api.service.port }}/readyz
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+{{- end }}

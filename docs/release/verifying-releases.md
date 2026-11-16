@@ -15,6 +15,16 @@ cosign verify ghcr.io/<org>/aip-api:<version> \
 gh attestation verify oci://ghcr.io/<org>/aip-api:<version> --owner <org>
 ```
 
+## Helm chart
+
+```sh
+cosign verify ghcr.io/<org>/charts/aip:<version> \
+  --certificate-identity-regexp '^https://github.com/<org>/<repo>/.github/workflows/release.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+The chart `.tgz` is also attached to the GitHub Release and listed in `SHA256SUMS`.
+
 ## Terraform bundle
 
 ```sh

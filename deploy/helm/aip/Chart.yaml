@@ -1,0 +1,14 @@
+apiVersion: v2
+name: aip
+description: AI integration platform for self-hosted (BYOC) Kubernetes installs.
+type: application
+# version and appVersion are set together by the release workflow from the git tag
+# (vX.Y.Z -> X.Y.Z). Chart, images and Terraform bundle always share one version.
+version: 0.0.0
+appVersion: "0.0.0"
+kubeVersion: ">=1.29.0-0"
+home: https://github.com/leeclarkuk/agentic-integration
+sources:
+  - https://github.com/leeclarkuk/agentic-integration
+annotations:
+  aip/supported-version-policy: docs/release/support-policy.md

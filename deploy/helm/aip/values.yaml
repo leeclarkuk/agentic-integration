@@ -1,0 +1,117 @@
+# Customer-facing configuration. Every key here is public API covered by
+# docs/release/support-policy.md: renaming or removing one is a MAJOR change.
+# values.schema.json validates this file; keep the two in sync.
+
+global:
+  # Override to pull from a mirror (e.g. your Artifact Registry / ECR / ACR).
+  imageRegistry: ghcr.io/leeclarkuk
+  imagePullSecrets: []
+  # gcp | aws | azure | other. Reported in call-home, and selects cloud-specific defaults.
+  cloud: gcp
+
+edition: self-hosted
+
+telemetry:
+  # Version + aggregate usage reporting. See docs/release/call-home.md for the exact payload.
+  enabled: true
+  endpoint: https://telemetry.invalid/v1/report
+  # Leave empty to generate a random UUID on first install, kept across upgrades.
+  # Set explicitly when rendering with `helm template` / GitOps (Argo CD, Flux),
+  # where the existing value can't be looked up and would change on every render.
+  installId: ""
+
+# Connection settings for the data stores you provide. Values are read from an
+# existing Secret you create; the chart never takes credentials as plain values.
+#   kubectl -n aip create secret generic aip-connections \
+#     --from-literal=DATABASE_URL=postgres://... --from-literal=REDIS_URL=redis://...
+connections:
+  existingSecret: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  # GKE Workload Identity: iam.gke.io/gcp-service-account: aip@PROJECT.iam.gserviceaccount.com
+  # EKS IRSA:              eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/aip
+  # AKS Workload Identity: azure.workload.identity/client-id: <client-id>
+  annotations: {}
+
+logLevel: info
+
+components:
+  api:
+    enabled: true
+    image:
+      repository: aip-api
+      # Defaults to the chart's appVersion.
+      tag: ""
+      # Pin by digest to satisfy Binary Authorization / admission policies. Takes precedence over tag.
+      digest: ""
+      pullPolicy: IfNotPresent
+    replicas: 2
+    port: 8080
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 80
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { memory: 512Mi }
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+    podDisruptionBudget:
+      enabled: true
+      maxUnavailable: 1
+    env: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  worker:
+    enabled: true
+    image:
+      repository: aip-worker
+      tag: ""
+      digest: ""
+      pullPolicy: IfNotPresent
+    replicas: 2
+    port: 8081
+    env:
+      WORKER_HEALTH_PORT: "8081"
+    service:
+      enabled: false
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { memory: 1Gi }
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+    podDisruptionBudget:
+      enabled: true
+      maxUnavailable: 1
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: ""
+  tls:
+    # Name of an existing TLS Secret for `host` (e.g. issued by cert-manager).
+    secretName: ""
+
+networkPolicy:
+  enabled: true
+  # Namespaces allowed to reach the api Service (e.g. your ingress controller's namespace).
+  # The release namespace is always included. Empty = any namespace; workers accept no ingress.
+  apiIngressNamespaces: []
+  # Restrict egress to these CIDRs (plus DNS). Empty = egress unrestricted, which is the
+  # default because the platform calls customer-chosen model providers and data stores.
+  # When set, include your node CIDR (Datadog agent on the host), database, Redis and Kafka ranges.
+  egressCIDRs: []

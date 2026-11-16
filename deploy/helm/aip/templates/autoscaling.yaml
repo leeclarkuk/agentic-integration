@@ -1,0 +1,48 @@
+{{- range $name, $c := .Values.components }}
+{{- if $c.enabled }}
+{{- $ctx := dict "root" $ "component" $name }}
+{{- if $c.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "aip.componentName" $ctx }}
+  labels:
+    {{- include "aip.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "aip.componentName" $ctx }}
+  minReplicas: {{ $c.autoscaling.minReplicas }}
+  maxReplicas: {{ $c.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $c.autoscaling.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleDown:
+      # Avoid flapping: scale in slowly, scale out fast.
+      stabilizationWindowSeconds: 300
+{{- end }}
+{{- if $c.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "aip.componentName" $ctx }}
+  labels:
+    {{- include "aip.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  maxUnavailable: {{ $c.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "aip.selectorLabels" $ctx | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,58 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- range $name, $c := .Values.components }}
+{{- if $c.enabled }}
+{{- $ctx := dict "root" $ "component" $name }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "aip.componentName" $ctx }}
+  labels:
+    {{- include "aip.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "aip.selectorLabels" $ctx | nindent 6 }}
+  policyTypes:
+    - Ingress
+    {{- if $.Values.networkPolicy.egressCIDRs }}
+    - Egress
+    {{- end }}
+  {{- /* Kubelet probes come from the node and are allowed by GKE Dataplane V2, Calico and Cilium. */}}
+  {{- if $c.service.enabled }}
+  ingress:
+    - ports:
+        - port: http
+          protocol: TCP
+      from:
+        {{- if $.Values.networkPolicy.apiIngressNamespaces }}
+        {{- range (append $.Values.networkPolicy.apiIngressNamespaces $.Release.Namespace | uniq) }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+        {{- else }}
+        - namespaceSelector: {}
+        {{- end }}
+  {{- else }}
+  ingress: []
+  {{- end }}
+  {{- if $.Values.networkPolicy.egressCIDRs }}
+  egress:
+    - ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+    - to:
+        {{- range $.Values.networkPolicy.egressCIDRs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

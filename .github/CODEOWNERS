@@ -1,8 +1,8 @@
-# Platform-owned paths. Replace the placeholder team with your GitHub org team
-# (e.g. the platform team slug) once the org exists.
-/infra/            @OWNER/platform
-/.github/          @OWNER/platform
-/deploy/           @OWNER/platform
-/tools/            @OWNER/platform
-/templates/        @OWNER/platform
-/packages/telemetry/ @OWNER/platform
+# Platform-owned paths. When this moves to a GitHub organisation, replace the
+# owner with the platform team (e.g. @<org>/platform).
+/infra/              @leeclarkuk
+/.github/            @leeclarkuk
+/deploy/             @leeclarkuk
+/tools/              @leeclarkuk
+/templates/          @leeclarkuk
+/packages/telemetry/ @leeclarkuk

@@ -31,6 +31,10 @@ E2E_PROJECTS=@aip/api pnpm --filter @aip/e2e e2e
 # Terraform (from infra/terraform/<module dir>): offline tests use mocked providers
 terraform init -backend=false && terraform validate && terraform test
 
+# Helm chart (needs helm + kubeconform)
+npx nx run @aip/helm-chart:lint          # helm lint --strict + kubeconform for defaults and ci/*.yaml
+npx nx run @aip/helm-chart:test          # schema tests; render tests run when helm is on PATH
+
 # golden-path scaffold
 pnpm platform new service <name> --lang ts|py
 ```
@@ -56,7 +60,9 @@ Set `NX_DAEMON=false` if Nx behaves oddly in sandboxed shells.
 
 **Terraform.** `modules/gcp/*` are internal building blocks other teams consume. `byoc/<cloud>` are the roots customers apply. Keep them small and stable. Secure defaults are asserted in `tests/*.tftest.hcl`: private nodes, Workload Identity, Binary Authorization on, a dedicated node SA, deletion protection. Weakening one should fail a test. Provider is `hashicorp/google ~> 6.0`. Only GCP BYOC exists so far. AWS/Azure roots are planned.
 
-**Releases** (`.github/workflows/release.yml`, on tag `vX.Y.Z`): multi-arch images to GHCR, cosign keyless-signed by digest, with SBOM + SLSA provenance. Plus a Terraform bundle with signed `SHA256SUMS`. The customer verification steps in `docs/release/verifying-releases.md` depend on the workflow path and tag pattern. Keep them in sync.
+**Helm chart** (`deploy/helm/aip`, Nx project `@aip/helm-chart`). One generic template set loops over `.Values.components` (api, worker). Add a component by adding a `components.<name>` block and a matching `values.schema.json` entry, not new templates. `values.yaml` + `values.schema.json` are customer-facing API. The schema is strict (`additionalProperties: false`), so a new key must be added to both. The install ID is rendered only in the `aip-install` Secret (kept on uninstall, reused on upgrade via `lookup`); workloads read it through `secretKeyRef`. Tests: `deploy/helm/test/schema.test.ts` (always runs) and `render.test.ts` (needs `helm` on PATH or `HELM_BIN`; skipped locally without it, hard failure in CI). `ci/*.yaml` are extra values files that lint, kubeconform and render tests all run. CI's `helm-install` job does a real install/upgrade/`helm test` on kind with Helm 3 and 4.
+
+**Releases** (`.github/workflows/release.yml`, on tag `vX.Y.Z`): multi-arch images to GHCR, cosign keyless-signed by digest, with SBOM + SLSA provenance. Plus the Helm chart pushed to `oci://ghcr.io/<owner>/charts/aip` and cosign-signed, and a Terraform bundle with signed `SHA256SUMS`. Chart version and appVersion are stamped from the tag at package time. `Chart.yaml` stays at `0.0.0` in git. The customer verification steps in `docs/release/verifying-releases.md` depend on the workflow path and tag pattern. Keep them in sync.
 
 ## Security defaults
 

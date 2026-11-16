@@ -25,6 +25,7 @@ jobs:
     outputs:
       projects: ${{ steps.list.outputs.projects }}
       run_e2e: ${{ steps.list.outputs.run_e2e }}
+      run_helm: ${{ steps.list.outputs.run_helm }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,6 +39,13 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.22.1 # the Helm major most customers run; chart must also pass on v4 (see helm-install)
+      - name: Install kubeconform
+        run: |
+          curl -fsSL -o /tmp/kc.tgz https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz
+          tar -xzf /tmp/kc.tgz -C /usr/local/bin kubeconform
 
       - run: pnpm install --frozen-lockfile
       - run: uv sync --locked
@@ -64,6 +72,7 @@ jobs:
           projects=$(pnpm -s nx show projects --affected --json | jq -r 'join(",")')
           echo "projects=${projects}" >> "$GITHUB_OUTPUT"
           if [[ ",${projects}," == *",@aip/e2e,"* ]]; then echo "run_e2e=true" >> "$GITHUB_OUTPUT"; fi
+          if [[ ",${projects}," == *",@aip/helm-chart,"* ]]; then echo "run_helm=true" >> "$GITHUB_OUTPUT"; fi
           echo "### Affected projects" >> "$GITHUB_STEP_SUMMARY"
           echo "${projects:-none}" | tr ',' '\n' | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
 
@@ -95,6 +104,52 @@ jobs:
         run: docker compose -f deploy/compose/docker-compose.yml logs --no-color --tail=500
       - if: always()
         run: docker compose -f deploy/compose/docker-compose.yml down -v
+
+  helm-install:
+    name: helm install + test (kind, helm ${{ matrix.helm }})
+    needs: affected
+    # Services are implicit deps of the chart, so image changes also re-run this.
+    if: needs.affected.outputs.run_helm == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        helm: [v3.22.1, v4.3.1]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ matrix.helm }}
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: aip
+      - name: Build images and load into kind
+        run: |
+          for svc in api worker; do
+            docker build -f "apps/${svc}/Dockerfile" -t "aip/aip-${svc}:ci" .
+            kind load docker-image --name aip "aip/aip-${svc}:ci"
+          done
+      - name: Install chart
+        run: |
+          helm install aip deploy/helm/aip --namespace aip --create-namespace --wait --timeout 5m \
+            --set global.imageRegistry=aip \
+            --set components.api.image.tag=ci --set components.api.image.pullPolicy=Never \
+            --set components.worker.image.tag=ci --set components.worker.image.pullPolicy=Never \
+            --set telemetry.enabled=false
+      - name: Upgrade in place (install ID must survive)
+        run: |
+          before=$(kubectl -n aip get secret aip-install -o jsonpath='{.data.installId}')
+          helm upgrade aip deploy/helm/aip --namespace aip --reuse-values --wait --timeout 5m
+          after=$(kubectl -n aip get secret aip-install -o jsonpath='{.data.installId}')
+          test -n "$before" && test "$before" = "$after"
+      - run: helm test aip --namespace aip --logs
+      - name: Diagnostics
+        if: failure()
+        run: |
+          kubectl -n aip get all,events --sort-by=.lastTimestamp
+          kubectl -n aip describe pods
+          kubectl -n aip logs -l app.kubernetes.io/instance=aip --all-containers --tail=200
 
   secrets-scan:
     runs-on: ubuntu-latest
