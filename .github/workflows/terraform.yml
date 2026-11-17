@@ -48,3 +48,6 @@ jobs:
           scan-ref: infra/terraform
           severity: HIGH,CRITICAL
           exit-code: "1"
+          # The action's default (v0.69.3) skips checks that need >= 0.72.0.
+          # Never use v0.69.4: that binary was the compromised release.
+          version: v0.76.2
