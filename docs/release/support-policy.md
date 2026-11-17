@@ -14,6 +14,10 @@ Releases follow [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATCH`.
 
 A release consists of container images, the Helm chart, and the Terraform module bundle, all tagged with the same version. Mixing component versions is not supported.
 
+### Release candidates
+
+Before some releases we publish release candidates, versioned `MAJOR.MINOR.PATCH-rc.N` (for example `1.5.0-rc.1`). They are built and signed the same way as releases and marked as pre-releases on GitHub. `helm install` and `helm upgrade` ignore them unless you pass `--devel`. Release candidates are for testing only: they are not supported in production and are not covered by the support window.
+
 ## Cadence
 
 - Minor releases: monthly.

@@ -13,6 +13,13 @@
   },
   "nx": {
     "targets": {
+      "test": {
+        "inputs": [
+          "default",
+          "^production",
+          "{workspaceRoot}/.github/workflows/release.yml"
+        ]
+      },
       "lint": {
         "command": "helm lint --strict deploy/helm/aip && for f in deploy/helm/aip/ci/*.yaml; do helm lint --strict deploy/helm/aip -f \"$f\" || exit 1; done && for f in \"\" deploy/helm/aip/ci/*.yaml; do helm template aip deploy/helm/aip -n aip ${f:+-f \"$f\"} | kubeconform -strict -summary -kubernetes-version 1.29.0 || exit 1; done",
         "cache": true,

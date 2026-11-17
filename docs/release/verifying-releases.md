@@ -2,7 +2,7 @@
 
 Every image and release bundle is signed in CI with [Sigstore cosign](https://docs.sigstore.dev) keyless signing. The signing identity is our GitHub Actions release workflow, so there is no long-lived key to leak or rotate.
 
-Replace `<org>`, `<repo>` and `<version>` below.
+Replace `<org>`, `<repo>` and `<version>` below. `<version>` has no leading `v`: the release tagged `v1.5.0` publishes images and a chart versioned `1.5.0`. Release candidates (`1.5.0-rc.1`) are signed and verified in exactly the same way.
 
 ## Container images
 
