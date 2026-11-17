@@ -26,8 +26,8 @@ jobs:
     permissions:
       contents: write # push the chore/uv-lock branch
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
 
       - name: Resolve
         run: uv lock ${{ inputs.upgrade && '--upgrade' || '' }}
@@ -40,7 +40,7 @@ jobs:
           uv run --all-packages mypy apps/worker/src
           uv run --all-packages pytest apps -q
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: uv-lock
           path: uv.lock
