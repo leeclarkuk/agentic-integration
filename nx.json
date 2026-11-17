@@ -10,7 +10,11 @@
       "!{projectRoot}/**/*.test.ts",
       "!{projectRoot}/vitest.config.ts"
     ],
-    "sharedGlobals": ["{workspaceRoot}/tsconfig.base.json", "{workspaceRoot}/pnpm-lock.yaml"]
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/.github/workflows/ci.yml"
+    ]
   },
   "targetDefaults": {
     "build": {
