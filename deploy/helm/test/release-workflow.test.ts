@@ -8,7 +8,14 @@ import { CHART } from './chart.js';
 // stamps from the git tag without its leading "v". Images must be tagged the same
 // way, or every default install pulls a tag that doesn't exist.
 
-type Step = { id?: string; name?: string; run?: string; with?: { tags?: string; labels?: string } };
+type Step = {
+  id?: string;
+  name?: string;
+  if?: string;
+  uses?: string;
+  run?: string;
+  with?: { tags?: string; labels?: string };
+};
 type Workflow = {
   on: { push: { tags: string[] } };
   jobs: { images: { steps: Step[] }; bundle: { steps: Step[] } };
@@ -47,6 +54,14 @@ describe('release workflow', () => {
 
   it('accepts release and release-candidate tags only', () => {
     expect(workflow.on.push.tags).toEqual(['v[0-9]+.[0-9]+.[0-9]+', 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+']);
+  });
+
+  it('only stores GitHub attestations when the repository is public', () => {
+    // GitHub rejects attestations for private user-owned repos, which fails the release.
+    const attest = workflow.jobs.images.steps.find((s) =>
+      s.uses?.startsWith('actions/attest-build-provenance@'),
+    );
+    expect(attest?.if).toMatch(/!github\.event\.repository\.private/);
   });
 
   it('marks release candidates as GitHub pre-releases', () => {

@@ -10,9 +10,18 @@ Replace `<org>`, `<repo>` and `<version>` below. `<version>` has no leading `v`:
 cosign verify ghcr.io/<org>/aip-api:<version> \
   --certificate-identity-regexp '^https://github.com/<org>/<repo>/.github/workflows/release.yml@refs/tags/v' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
 
+Each image carries SLSA build provenance and an SPDX SBOM, attached to the image index at build time. The signature verified above covers the index, so it covers both. To read them (use `linux/arm64` for Arm):
+
+```sh
 # Build provenance (SLSA)
-gh attestation verify oci://ghcr.io/<org>/aip-api:<version> --owner <org>
+docker buildx imagetools inspect ghcr.io/<org>/aip-api:<version> \
+  --format '{{ json (index .Provenance "linux/amd64").SLSA }}'
+
+# SBOM (SPDX)
+docker buildx imagetools inspect ghcr.io/<org>/aip-api:<version> \
+  --format '{{ json (index .SBOM "linux/amd64").SPDX }}'
 ```
 
 ## Helm chart

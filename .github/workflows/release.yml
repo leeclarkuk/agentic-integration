@@ -74,7 +74,12 @@ jobs:
       - name: Sign image by digest
         run: cosign sign --yes "${IMAGE}@${{ steps.build.outputs.digest }}"
 
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      # SLSA provenance and an SBOM are already attached to the image by the build
+      # step above and covered by the cosign signature. This additionally stores a
+      # GitHub attestation (for `gh attestation verify`), which GitHub only offers
+      # for public repositories on our plan, so it is skipped while the repo is private.
+      - if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
