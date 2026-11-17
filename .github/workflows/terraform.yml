@@ -40,9 +40,14 @@ jobs:
       - run: tflint --init && tflint --recursive --config "$PWD/.tflint.hcl"
 
       - name: misconfiguration scan
-        uses: aquasecurity/trivy-action@0.33.1
+        # Pinned by SHA: tags were force-pushed in the March 2026 compromise
+        # (CVE-2026-33634). v0.35.0 is the release that was not affected.
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: config
           scan-ref: infra/terraform
           severity: HIGH,CRITICAL
           exit-code: "1"
+          # The action's default (v0.69.3) skips checks that need >= 0.72.0.
+          # Never use v0.69.4: that binary was the compromised release.
+          version: v0.76.2
