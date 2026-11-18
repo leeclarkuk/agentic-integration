@@ -64,6 +64,13 @@ describe('release workflow', () => {
     expect(attest?.if).toMatch(/!github\.event\.repository\.private/);
   });
 
+  it.each(['images', 'bundle'] as const)('logs %s into GHCR where cosign can read it', (job) => {
+    // cosign reads the Docker config; `helm registry login` alone leaves it unauthenticated.
+    const steps = workflow.jobs[job].steps;
+    expect(steps.some((s) => /cosign sign --yes/.test(s.run ?? ''))).toBe(true);
+    expect(steps.some((s) => s.uses?.startsWith('docker/login-action@'))).toBe(true);
+  });
+
   it('marks release candidates as GitHub pre-releases', () => {
     const create = workflow.jobs.bundle.steps.find((s) => s.name === 'Create GitHub Release');
     expect(create?.run).toMatch(/\*-rc\.\*.*--prerelease/s);
