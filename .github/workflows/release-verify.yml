@@ -1,0 +1,152 @@
+# Checks a published release the way a customer consumes it: from the public
+# registry, with no registry login, using the commands in
+# docs/release/verifying-releases.md and the chart's default values.
+#
+# Runs after every successful release, on demand for an existing tag, and on
+# pull requests that change this workflow (against the latest release).
+# `workflow_run` is used because the release workflow publishes with
+# GITHUB_TOKEN, whose events don't trigger other workflows.
+name: release-verify
+
+on:
+  pull_request:
+    paths: [.github/workflows/release-verify.yml]
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to verify (e.g. v0.1.0)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-verify-${{ github.event.workflow_run.head_branch || inputs.tag || github.ref }}
+
+jobs:
+  resolve:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.v.outputs.version }}
+      owner: ${{ steps.v.outputs.owner }}
+    steps:
+      - id: v
+        env:
+          TAG: ${{ github.event.workflow_run.head_branch || inputs.tag }}
+          OWNER: ${{ github.repository_owner }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAG" ]; then
+            TAG=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)
+          fi
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "not a release tag: $TAG"; exit 1; }
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+  signatures:
+    name: verify signatures, checksums and provenance
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      REG: ghcr.io/${{ needs.resolve.outputs.owner }}
+      IDENTITY: ^https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/v
+      ISSUER: https://token.actions.githubusercontent.com
+    steps:
+      # Same cosign major as release.yml, and the version customers are told to use.
+      - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+        with:
+          cosign-release: v2.6.5
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # No registry login anywhere in this job: everything must work anonymously.
+      - name: Image and chart signatures
+        run: |
+          set -euo pipefail
+          for ref in "aip-api:${VERSION}" "aip-worker:${VERSION}" "charts/aip:${VERSION}"; do
+            cosign verify "${REG}/${ref}" \
+              --certificate-identity-regexp "$IDENTITY" --certificate-oidc-issuer "$ISSUER" >/dev/null
+            echo "verified ${REG}/${ref}"
+          done
+
+      - name: Provenance and SBOM are attached
+        run: |
+          set -euo pipefail
+          for svc in api worker; do
+            for platform in linux/amd64 linux/arm64; do
+              img="${REG}/aip-${svc}:${VERSION}"
+              docker buildx imagetools inspect "$img" \
+                --format "{{ json (index .Provenance \"${platform}\").SLSA }}" | jq -e '.buildDefinition // .invocation' >/dev/null
+              docker buildx imagetools inspect "$img" \
+                --format "{{ json (index .SBOM \"${platform}\").SPDX }}" | jq -e '.packages | length > 0' >/dev/null
+              echo "provenance + SBOM present: ${img} ${platform}"
+            done
+          done
+
+      # Release assets need a token while the repository is private.
+      - name: Terraform bundle and chart checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir dist && cd dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY"
+          cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
+            --certificate-identity-regexp "$IDENTITY" --certificate-oidc-issuer "$ISSUER"
+          sha256sum -c SHA256SUMS
+
+  install:
+    name: install from registry (kind, helm ${{ matrix.helm }})
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        helm: [v3.22.1, v4.3.1]
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      CHART: oci://ghcr.io/${{ needs.resolve.outputs.owner }}/charts/aip
+    steps:
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: ${{ matrix.helm }}
+      - uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+        with:
+          cluster_name: aip
+
+      # Default values, so the chart's own registry and image tags are what get
+      # pulled. Telemetry is off only so test installs don't call home.
+      - name: Install published chart
+        run: |
+          helm install aip "$CHART" --version "$VERSION" \
+            --namespace aip --create-namespace --wait --timeout 10m \
+            --set telemetry.enabled=false
+
+      - name: Pods run the released images
+        run: |
+          set -euo pipefail
+          images=$(kubectl -n aip get pods -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.image}{"\n"}{end}{end}' | sort -u)
+          echo "$images"
+          echo "$images" | grep -q "/aip-api:${VERSION}$"
+          echo "$images" | grep -q "/aip-worker:${VERSION}$"
+
+      - run: helm test aip --namespace aip --logs
+
+      - name: Diagnostics
+        if: failure()
+        run: |
+          kubectl -n aip get all
+          kubectl -n aip get events --sort-by=.lastTimestamp
+          kubectl -n aip describe pods
+          kubectl -n aip logs -l app.kubernetes.io/instance=aip --all-containers --tail=200

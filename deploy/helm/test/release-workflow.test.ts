@@ -76,3 +76,32 @@ describe('release workflow', () => {
     expect(create?.run).toMatch(/\*-rc\.\*.*--prerelease/s);
   });
 });
+
+type VerifyWorkflow = {
+  on: { workflow_run: { workflows: string[]; types: string[] }; workflow_dispatch: unknown };
+  jobs: { install: { steps: Step[] }; signatures: { steps: Step[] } };
+};
+
+const workflowsDir = join(CHART, '..', '..', '..', '.github', 'workflows');
+const releaseName = (parse(readFileSync(join(workflowsDir, 'release.yml'), 'utf8')) as { name: string }).name;
+const verify = parse(readFileSync(join(workflowsDir, 'release-verify.yml'), 'utf8')) as VerifyWorkflow;
+
+describe('release-verify workflow', () => {
+  it('runs after the release workflow, matched by its name', () => {
+    // workflow_run matches on `name:`, so renaming release.yml's workflow would silently stop verification.
+    expect(verify.on.workflow_run.workflows).toEqual([releaseName]);
+    expect(verify.on.workflow_run.types).toEqual(['completed']);
+    expect(verify.on.workflow_dispatch).toBeDefined();
+  });
+
+  it('installs the published chart with default values, never logging in to the registry', () => {
+    const all = [...verify.jobs.install.steps, ...verify.jobs.signatures.steps];
+    expect(all.some((s) => s.uses?.startsWith('docker/login-action@'))).toBe(false);
+    expect(all.some((s) => /registry login|docker login/.test(s.run ?? ''))).toBe(false);
+
+    const install = verify.jobs.install.steps.find((s) => s.name === 'Install published chart')?.run ?? '';
+    expect(install).toMatch(/helm install aip "\$CHART" --version "\$VERSION"/);
+    // Only telemetry may be overridden; registry and image tags must come from the chart defaults.
+    expect(install.match(/--set [^\s]+/g)).toEqual(['--set telemetry.enabled=false']);
+  });
+});
