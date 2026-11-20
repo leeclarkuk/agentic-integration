@@ -4,14 +4,15 @@
 
 - A GCP project you own, with billing enabled.
 - An identity with `roles/owner`, or `roles/editor` + `roles/resourcemanager.projectIamAdmin`, on that project.
-- Terraform ≥ 1.9, `gcloud`, `kubectl`, and Helm ≥ 3.8 (Helm 4 is also supported).
+- Terraform ≥ 1.9, `gcloud`, `kubectl`, Helm ≥ 3.8 (Helm 4 is also supported), [cosign](https://docs.sigstore.dev) and [ORAS](https://oras.land) ≥ 1.2.
 - A supported release version (see [support policy](../release/support-policy.md)).
 
 ## 1. Verify and unpack the release
 
-Follow [verifying-releases.md](../release/verifying-releases.md), then:
+Verify and pull the Terraform bundle as described in [verifying-releases.md](../release/verifying-releases.md#terraform-bundle), then:
 
 ```sh
+oras pull ghcr.io/<org>/terraform/aip:<version>
 tar -xzf aip-terraform-v<version>.tar.gz
 cd terraform/byoc/gcp
 ```
