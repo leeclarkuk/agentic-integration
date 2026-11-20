@@ -105,3 +105,27 @@ describe('release-verify workflow', () => {
     expect(install.match(/--set [^\s]+/g)).toEqual(['--set telemetry.enabled=false']);
   });
 });
+
+describe('Terraform bundle in the registry', () => {
+  // Release assets need a GitHub login while the repo is private, so customers get the bundle from GHCR.
+  it('is pushed to GHCR with oras and signed with cosign', () => {
+    const push =
+      workflow.jobs.bundle.steps.find((s) => s.name === 'Push and sign Terraform bundle')?.run ?? '';
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: shell / Actions expression, not a JS template
+    expect(push).toContain('ref="ghcr.io/${owner_lc}/terraform/aip"');
+    expect(push).toMatch(/oras push "\$\{ref\}:\$\{version\}"/);
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: shell / Actions expression, not a JS template
+    expect(push).toContain('aip-terraform-${GITHUB_REF_NAME}.tar.gz');
+    expect(push).toMatch(/cosign sign --yes "\$\{ref\}@\$\{digest\}"/);
+  });
+
+  it('is verified and pulled anonymously by release-verify, and matches SHA256SUMS', () => {
+    const check =
+      verify.jobs.signatures.steps.find((s) => s.name === 'Terraform bundle from the registry')?.run ?? '';
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: shell / Actions expression, not a JS template
+    expect(check).toContain('ref="${REG}/terraform/aip:${VERSION}"');
+    expect(check).toMatch(/cosign verify "\$ref"/);
+    expect(check).toMatch(/oras pull "\$ref"/);
+    expect(check).toContain('../dist/SHA256SUMS');
+  });
+});

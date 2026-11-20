@@ -36,6 +36,18 @@ The chart `.tgz` is also attached to the GitHub Release and listed in `SHA256SUM
 
 ## Terraform bundle
 
+The bundle is published to GHCR next to the chart. Verify it, then pull it with [ORAS](https://oras.land) (1.2 or later):
+
+```sh
+cosign verify ghcr.io/<org>/terraform/aip:<version> \
+  --certificate-identity-regexp '^https://github.com/<org>/<repo>/.github/workflows/release.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+oras pull ghcr.io/<org>/terraform/aip:<version>   # writes aip-terraform-v<version>.tar.gz
+```
+
+The bundle and the chart `.tgz` are also attached to the GitHub Release with a signed `SHA256SUMS`. If you downloaded them from there, verify them with:
+
 ```sh
 cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
   --certificate-identity-regexp '^https://github.com/<org>/<repo>/.github/workflows/release.yml@refs/tags/v' \
